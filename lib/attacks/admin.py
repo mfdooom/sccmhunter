@@ -443,13 +443,35 @@ class CONSOLE:
 
 
             if self.approve_user:
-                r = requests.request("GET",
-                                endpoint,
-                                auth=HttpNtlmAuth(self.approve_user, self.approve_password),
-                                verify=False, headers=headers)
-                if r.status_code == 401:
-                    logger.info("Got error code 401: Access Denied. Check your approver credentials.")
-                    logger.info("Script execution will fail if approval is required.")
+                if self.kerberos:
+                    token = ldap3_kerberos_login(
+                    connection=None,
+                    target=self.url,  # Extract hostname
+                    user=self.approve_user,
+                    password=self.approve_password,
+                    domain=self.domain,
+                    kdcHost=self.kdc_host,
+                    admin_service=True
+                )
+                    headers = {'Content-Type': 'application/json; odata=verbose', 
+                        'User-Agent': 'Device action simulation',
+                        'Authorization': token}
+                
+                    r = requests.request("GET", 
+                                    endpoint,
+                                    verify=False,
+                                    headers=headers)  
+                    if r.status_code == 401:
+                        logger.info("Got error code 401: Access Denied. Check your approver credentials.")
+                        logger.info("Script execution will fail if approval is required.")
+                else:        
+                    r = requests.request("GET",
+                                    endpoint,
+                                    auth=HttpNtlmAuth(self.approve_user, self.approve_password),
+                                    verify=False, headers=headers)
+                    if r.status_code == 401:
+                        logger.info("Got error code 401: Access Denied. Check your approver credentials.")
+                        logger.info("Script execution will fail if approval is required.")
 
             
             if r.status_code == 200:
