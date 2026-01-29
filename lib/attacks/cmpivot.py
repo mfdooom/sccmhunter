@@ -4,6 +4,8 @@ import requests
 import traceback
 import argparse
 from requests_ntlm import HttpNtlmAuth
+from requests_gssapi import HTTPSPNEGOAuth
+from binascii import unhexlify
 from urllib3.exceptions import InsecureRequestWarning
 from tabulate import tabulate
 from lib.scripts.banner import show_banner
@@ -35,21 +37,22 @@ class SHELL(cmd2.Cmd):
     application_parser.add_argument('-s', '--system', action="store_true", help='Run the application as NT AUTHORITY\\SYSTEM', default=False)
     application_parser.add_argument('-n', '--name', action="store", help="Name of the application")
 
-    def __init__(self, username, password, target, logs_dir, auser, apassword):
+    def __init__(self, username, password, target, logs_dir, auser, apassword, auth, auser_auth, ccache_files):
         #initialize plugins
-        self.pivot = CMPIVOT(username=username, password=password, target = target, logs_dir = logs_dir)
-        self.script = SMSSCRIPTS(username=username, password=password, target = target, logs_dir = logs_dir, auser=auser, apassword=apassword)
-        self.backdoor = BACKDOOR(username=username, password=password, target = target, logs_dir = logs_dir, auser=auser, apassword=apassword)
-        self.admin = ADD_ADMIN(username=username, password=password,target_ip=target, logs_dir=logs_dir)
-        self.db = DATABASE(username=username, password=password,url=target, logs_dir=logs_dir)
-        self.application = SMSAPPLICATION(username=username, password=password,target=target, logs_dir=logs_dir)
-        self.karen = SPEAKTOTHEMANAGER(username=username, password=password, target=target)
+        self.pivot = CMPIVOT(auth=auth,target = target, logs_dir = logs_dir)
+        self.script = SMSSCRIPTS(auth=auth, target = target, logs_dir = logs_dir, auser_auth = auser_auth)
+        self.backdoor = BACKDOOR(auth=auth, target = target, logs_dir = logs_dir, auser_auth = auser_auth)
+        self.admin = ADD_ADMIN(auth=auth,target_ip=target, logs_dir=logs_dir)
+        self.db = DATABASE(auth=auth, url=target, logs_dir=logs_dir)
+        self.application = SMSAPPLICATION(auth=auth, target=target, logs_dir=logs_dir)
+        self.karen = SPEAKTOTHEMANAGER(auth=auth, target=target)
         
         #initialize cmd
         super().__init__(allow_cli_args=False)
         self.hidden_commands = self.hidden
         self.username = username
         self.password = password
+        self.auth = auth
         self.target = target
         self.logs_dir = logs_dir
         self.headers = {'Content-Type': 'application/json; odata=verbose'} # modify useragent? currently shows python useragent in logs
@@ -60,6 +63,7 @@ class SHELL(cmd2.Cmd):
         self.hostname = ""
         self.approve_user = auser
         self.approve_password = apassword
+        self.ccache_files = ccache_files
 
 
 # ############
@@ -82,6 +86,8 @@ class SHELL(cmd2.Cmd):
     @cmd2.with_category(IN)
     def do_exit(self, arg):
         """Exit the console."""
+        for f in self.ccache_files:
+            os.remove(f)
         return True 
     
     @cmd2.with_category(SA)
@@ -441,30 +447,56 @@ class SHELL(cmd2.Cmd):
 
 
 class CONSOLE:
-    def __init__(self, username=None, password=None, ip=None, debug=False, logs_dir=None, auser=None, apassword=None):
+    def __init__(self, username=None, password=None, domain=None, kerberos=None, dcip=None, ip=None, debug=False, logs_dir=None, auser=None, apassword=None, auth=None):
         self.username = username
         self.password = password
         self.url = ip
+        self.domain = domain
+        self.kerberos = kerberos
+        self.dcip = dcip
         self.debug = debug
+        self.lmhash = ''
+        self.nthash = ''
         self.logs_dir = logs_dir
         self.approve_user = auser
         self.approve_password = apassword
+        self.auser_auth = ''
+        self.ccache_files = []
+
+        if(kerberos):
+            try:
+                self.auth = self.kerberos_auth(self.username, self.password, self.nthash, self.lmhash)
+            except Exception as e:
+                logger.info("Kerberos authentication failed. Check your credentials")
+                logger.info(e)
+            try:
+                if self.approve_user:
+                    self.auser_auth = self.kerberos_auth(self.approve_user, self.approve_password)
+            except Exception as e:
+                logger.info("Kerberos authentication failed. Check your approval credentials")
+                logger.info("Script execution will fail if approval is required.")
+                logger.info(e)
+        else:
+            self.auth = HttpNtlmAuth(self.username, self.password)
+            if self.approve_user: 
+                self.auser_auth =  HttpNtlmAuth(self.approve_user, self.approve_password)
     
     def run(self):
         try:
             endpoint = f"https://{self.url}/AdminService/wmi/"
-            if self.approve_user:
+            if self.auser_auth:
                 r = requests.request("GET",
                                 endpoint,
-                                auth=HttpNtlmAuth(self.approve_user, self.approve_password),
+                                auth=self.auser_auth,
                                 verify=False)
                 if r.status_code == 401:
                     logger.info("Got error code 401: Access Denied. Check your approver credentials.")
                     logger.info("Script execution will fail if approval is required.")
+      
             r = requests.request("GET",
-                                endpoint,
-                                auth=HttpNtlmAuth(self.username, self.password),
-                                verify=False)
+                            endpoint,
+                            auth=self.auth,
+                            verify=False)
             
             if r.status_code == 200:
                 self.cli()
@@ -477,11 +509,58 @@ class CONSOLE:
         except Exception as e:
             logger.info("An unknown error occurred, use -debug to print the response")
             logger.info(e)
-
+    
     def cli(self):
-        cli = SHELL(self.username, self.password, self.url, self.logs_dir, self.approve_user, self.approve_password)
+        cli = SHELL(self.username, self.password, self.url, self.logs_dir, self.approve_user, self.approve_password, self.auth, self.auser_auth, self.ccache_files)
         cli.cmdloop()
 
+    def kerberos_auth(self, username, password, nthash='', lmhash = ''):
+        # Importing down here so pyasn1 is not required if kerberos is not used.
+        from impacket.krb5.kerberosv5 import getKerberosTGT
+        from impacket.krb5.ccache import CCache
+        from impacket.krb5 import constants
+        from impacket.krb5.types import Principal
+        from binascii import a2b_hex
+        import gssapi
+        import tempfile
+
+        # If TGT or TGS are specified, they are in the form of:
+        # TGS['KDC_REP'] = the response from the server
+        # TGS['cipher'] = the cipher used
+        # TGS['sessionKey'] = the sessionKey
+        # If we have hashes, normalize them
+        if lmhash != '' or nthash != '':
+            if len(lmhash) % 2:
+                lmhash = '0%s' % lmhash
+            if len(self.nthash) % 2:
+                nthash = '0%s' % nthash
+            try: # just in case they were converted already
+                lmhash = a2b_hex(lmhash)
+                nthash = a2b_hex(nthash)
+            except:
+                pass
+
+        # First of all, we need to get a TGT for the user
+        principal = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+
+        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(principal, password, self.domain, lmhash, nthash, kdcHost=self.dcip)
+
+        ccache = CCache()
+        ccache.fromTGT(tgt, oldSessionKey, sessionKey)
+        tmp = tempfile.NamedTemporaryFile(delete=False)
+        ccache.saveFile(tmp.name)
+
+        creds = gssapi.Credentials(
+        usage="initiate",
+        store={
+        "ccache": f"FILE:{tmp.name}"
+        }
+        )
+
+        self.ccache_files.append(tmp.name)
+        auth = HTTPSPNEGOAuth(creds=creds)
+        return auth
+    
 if __name__ == '__main__':
     import sys
     c = CMD()

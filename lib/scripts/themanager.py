@@ -81,10 +81,9 @@ def deobfuscate_credential_string(credential_string):
 
 class SPEAKTOTHEMANAGER:
     
-    def __init__(self, target, username, password):
+    def __init__(self, target, auth):
         self.target = target
-        self.username = username
-        self.password = password
+        self.auth = auth
         self.headers = {'Content-Type': 'application/json; odata=verbose'}
         
     def parse_xml(self, xml):
@@ -191,7 +190,7 @@ class SPEAKTOTHEMANAGER:
     def http_request(self, url, body=None):
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers, json=body)
             if r.status_code == 401:
                 logger.info("Got a 401 access denied. Your user may not have permissions on the AdminService API")

@@ -11,11 +11,11 @@ from datetime import datetime
 
 class CMPIVOT:
 
-    def __init__(self, username, password, target, logs_dir):
-        self.username = username
-        self.password = password
+    def __init__(self, auth, target, logs_dir):
+        self.auth = auth
         self.target = target
         self.logs_dir = logs_dir
+        self.auth = auth
         self.headers = {'Content-Type': 'application/json; odata=verbose'}
         self.opid = ""
         self.body = ""
@@ -151,7 +151,7 @@ class CMPIVOT:
         try:
             r = requests.post(
                                 f"{endpoint}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 json=body,
                                 verify=False, 
                                 headers=self.headers)
@@ -181,7 +181,7 @@ class CMPIVOT:
             try:
                 r = requests.request("GET",
                                     f"{endpoint}",
-                                    auth=HttpNtlmAuth(self.username, self.password),
+                                    auth=self.auth,
                                     verify=False)
                 if r.status_code == 404:
                     logger.info("No results yet, sleeping 10 seconds.")

@@ -7,16 +7,14 @@ from requests_ntlm import HttpNtlmAuth
 from urllib3.exceptions import InsecureRequestWarning
 
 
-
 headers = {'Content-Type': 'application/json'}
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 
 class DATABASE():
-    def __init__(self, username=None, password=None, url=None, logs_dir=None):
+    def __init__(self, auth=None, url=None, logs_dir=None):
         self.url = f"https://{url}/AdminService/wmi"
-        self.username = username
-        self.password = password
+        self.auth = auth
         self.logs_dir = logs_dir
         self._dbname = f"{self.logs_dir}/db/sccmhunter.db"
         self.conn = sqlite3.connect(self._dbname, check_same_thread=False)
@@ -101,7 +99,7 @@ SMSUniqueIdentifier: {tb['SMSUniqueIdentifier'].to_string(index=False, header=Fa
         try:
             r = requests.request("GET",
                                 f"{endpoint}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False)
             results = r.json()
             for i in results["value"]:
@@ -171,7 +169,7 @@ UserPrincipalName: {tb['UserPrincipalName'].to_string(index=False, header=False)
 
             r = requests.request("GET",
                                 f"{endpoint}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False)
             results = r.json()
 
@@ -209,7 +207,7 @@ UserPrincipalName: {tb['UserPrincipalName'].to_string(index=False, header=False)
         try:  
             r = requests.request("GET",
                                 f"{endpoint}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False)
             results = r.json()
             for i in results["value"]:
@@ -244,7 +242,7 @@ UserPrincipalName: {tb['UserPrincipalName'].to_string(index=False, header=False)
         endpoint = f'''{self.url}/SMS_Collection?$select=CollectionID,CollectionType,IsBuiltIn,LimitToCollectionName,MemberClassName,MemberCount,Name'''   
         r = requests.request("GET",
                             f"{endpoint}",
-                            auth=HttpNtlmAuth(self.username, self.password),
+                            auth=self.auth,
                             verify=False)
         results = r.json()
         for i in results["value"]:
@@ -305,7 +303,7 @@ UserPrincipalName: {tb['UserPrincipalName'].to_string(index=False, header=False)
         try:
             r = requests.request("GET",
                                 f"{endpoint}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False)
             results = r.json()
 
@@ -353,7 +351,7 @@ UserPrincipalName: {tb['UserPrincipalName'].to_string(index=False, header=False)
         endpoint = f"{self.url}/SMS_CollectionMember_a?$filter=CollectionID eq '{collectionid}'"
         try:
             r = requests.get(f"{endpoint}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=headers)
             if r.status_code == 200:
                 data = r.json()

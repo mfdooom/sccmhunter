@@ -7,6 +7,7 @@ pyasn1
 pyasn1_modules
 Requests
 requests_ntlm
+requests_gssapi
 requests_toolbelt
 rich
 tabulate

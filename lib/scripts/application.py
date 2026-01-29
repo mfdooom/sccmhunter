@@ -15,9 +15,8 @@ from lib.logger import logger
 #everything here was converted from SharpSCCM...ily @_Mayyhem
 class SMSAPPLICATION:
 
-    def __init__(self, username, password, target, logs_dir):
-        self.username = username
-        self.password = password
+    def __init__(self, auth, target, logs_dir):
+        self.auth = auth
         self.target = target
         self.logs_dir = logs_dir
         self.headers = {'Content-Type': 'application/json'}
@@ -52,25 +51,25 @@ class SMSAPPLICATION:
     
     def adminservice_post(self, url, body):
         r = requests.post(url,
-                    auth=HttpNtlmAuth(self.username, self.password),
+                    auth=self.auth,
                     verify=False,headers=self.headers, json=body) 
         return r
 
     def adminservice_get(self, url):
         r = requests.get(url,
-                auth=HttpNtlmAuth(self.username, self.password),
+                auth=self.auth,
                 verify=False,headers=self.headers)
         return r
     
     def adminservice_delete(self, url):
         r = requests.delete(url,
-                auth=HttpNtlmAuth(self.username, self.password),
+                auth=self.auth,
                 verify=False,headers=self.headers)
         return r
     
     def adminservice_patch(self, url, body):
         r = requests.patch(url,
-                auth=HttpNtlmAuth(self.username, self.password),
+                auth=self.auth,
                 verify=False,headers=self.headers, json=body)
         return r
 
